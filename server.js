@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const chatRoutes = require('./routes/chat');
 const { createServer } = require('http');
+const path = require('path');
 
 dotenv.config();
 
@@ -14,10 +15,11 @@ const app = express();
 
 connectDB();
 
-app.use(express.json());  // Parse incoming JSON requests
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());  
 app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100, 
+    max: 100,
 }));
 app.use('/api', chatRoutes);
 
@@ -30,7 +32,7 @@ io.on('connection', (socket) => {
 
     socket.on('typing', (data) => {
         console.log('User is typing: ', data);
-        socket.broadcast.emit('typing', data); 
+        socket.broadcast.emit('typing', data);
     });
 
     socket.on('disconnect', () => {
