@@ -1,22 +1,49 @@
 const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
 const rateLimit = require('express-rate-limit');
+const http = require('http');
+const socketIo = require('socket.io');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+const connectDB = require('./config/db');
 const chatRoutes = require('./routes/chat');
+const { createServer } = require('http');
 
-require('dotenv').config();
-app.use(express.json());
+dotenv.config();
+
+const app = express();
+
+connectDB();
+
+app.use(express.json());  // Parse incoming JSON requests
 app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100, 
 }));
-
-// Placeholder route
-app.get('/', (req, res) => res.send('Chatbot Backend is Running'));
 app.use('/api', chatRoutes);
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = createServer(app);
 
-const connectDB = require('./config/db');
-connectDB();
+const io = socketIo(server);
+
+io.on('connection', (socket) => {
+    console.log('New user connected: ', socket.id);
+
+    socket.on('typing', (data) => {
+        console.log('User is typing: ', data);
+        socket.broadcast.emit('typing', data); 
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected: ', socket.id);
+    });
+});
+
+app.get('/', (req, res) => {
+    res.send('AI Chatbot Backend is running');
+});
+
+// Start server and listen on the specified port
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
