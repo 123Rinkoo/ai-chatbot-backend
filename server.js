@@ -1,18 +1,16 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const http = require('http');
 const socketIo = require('socket.io');
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const chatRoutes = require('./routes/chat');
 const { createServer } = require('http');
 const path = require('path');
+const app = express();
+const server = createServer(app);
+const io = socketIo(server);
 
 dotenv.config();
-
-const app = express();
-
 connectDB();
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -21,27 +19,31 @@ app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
 }));
-app.use('/api', chatRoutes);
 
-const server = createServer(app);
-
-const io = socketIo(server);
-
-io.on('connection', (socket) => {
-    console.log('New user connected: ', socket.id);
-
-    socket.on('typing', (data) => {
-        console.log('User is typing: ', data);
-        socket.broadcast.emit('typing', data);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected: ', socket.id);
-    });
+app.use((req, res, next) => {
+    req.io = io;
+    next();
 });
 
 app.get('/', (req, res) => {
     res.send('AI Chatbot Backend is running');
+});
+
+app.use('/api', chatRoutes);
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    // Listen for "user typing" event
+    socket.on('userFinishedTyping', () => {
+        // Notify all clients that the bot is typing
+        io.emit('botTyping');
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
 });
 
 // Start server and listen on the specified port
