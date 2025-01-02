@@ -11,6 +11,7 @@ const getChatResponse = async (req, res) => {
         console.log(`User message: ${message}`);
         const cachedResponse = await redisClient.get(message);
         if (cachedResponse) {
+            io.emit('botStoppedTyping');
             return res.json({ message: "From Cache", reply: cachedResponse });
         }
         else {
